@@ -1,7 +1,8 @@
-import { AxesHelper, BackSide, CameraHelper, CircleGeometry, CylinderGeometry, DirectionalLight, GridHelper, HemisphereLight, Mesh, MeshBasicMaterial, MeshPhongMaterial, PerspectiveCamera, Scene, WebGLRenderer } from "three";
-import { OrbitControls } from "three/examples/jsm/Addons.js";
+import { AxesHelper, CameraHelper, DirectionalLight, GridHelper, HemisphereLight, IUniform, PerspectiveCamera, PointLight, PointLightHelper, Scene, Vector3, WebGLRenderer } from "three";
+import { OrbitControls, Sky } from "three/examples/jsm/Addons.js";
 import Rollercoaster from "./Rollercoaster";
 import SpinningChairs from "./SpinningChairs";
+import Ground from "./Ground";
 
 export default class Park {
     scene = new Scene();
@@ -9,6 +10,7 @@ export default class Park {
     rollercoaster: Rollercoaster;
     spinningChairs: SpinningChairs;
     sunLight?: DirectionalLight;
+    skySunUniform?: IUniform<any>;
 
     constructor(domElement: HTMLElement) {
         this.rollercoaster = new Rollercoaster(this.scene);
@@ -17,12 +19,7 @@ export default class Park {
         this.spinningChairs = new SpinningChairs(this.scene);
         this.spinningChairs.group.position.set(40, 0, -40);
 
-        const groundGeometry = new CircleGeometry(1000);
-        const groundMaterial = new MeshPhongMaterial({ color: 0x33ff33 });
-        const ground = new Mesh(groundGeometry, groundMaterial);
-        ground.rotateX(-Math.PI / 2);
-        ground.receiveShadow = true;
-        this.scene.add(ground);
+        this.scene.add(new Ground().group);
 
         this.camera = new PerspectiveCamera();
         this.camera.position.set(0, 6, 6);
@@ -31,13 +28,28 @@ export default class Park {
 
         this.createLights();
         this.createHelpers();
+        this.createSky();
+    }
+
+    createSky() {
+        const sky = new Sky();
+        sky.scale.setScalar(450000);
+        this.scene.add(sky);
+
+        const uniforms = sky.material.uniforms;
+        uniforms['turbidity'].value = 2;
+        uniforms['rayleigh'].value = 0.6;
+        uniforms['mieCoefficient'].value = 0.002;
+        uniforms['mieDirectionalG'].value = 0.9;
+
+        this.skySunUniform = uniforms["sunPosition"];
     }
 
     createLights() {
-        const skycubeGeometry = new CylinderGeometry(1000, 1000, 1000);
-        const skycubeMaterial = new MeshBasicMaterial({ color: 0x33ddff, side: BackSide });
-        const skycube = new Mesh(skycubeGeometry, skycubeMaterial);
-        this.scene.add(skycube);
+        // const skycubeGeometry = new CylinderGeometry(1000, 1000, 1000);
+        // const skycubeMaterial = new MeshBasicMaterial({ color: 0x33ddff, side: BackSide });
+        // const skycube = new Mesh(skycubeGeometry, skycubeMaterial);
+        // this.scene.add(skycube);
 
         const sunlight = new DirectionalLight();
         sunlight.position.set(0, 60, 30);
@@ -56,6 +68,16 @@ export default class Park {
 
         const hemisphereLight = new HemisphereLight(0xaaaaff, 0xaaffaa, 0.5);
         this.scene.add(hemisphereLight);
+
+        const poleLight = new PointLight(0xffffaa, 15, 0, 1);
+        const polePositions = [new Vector3(-50, 10, -50), new Vector3(50, 10, -50), new Vector3(-50, 10, 50), new Vector3(50, 10, 50),];
+        for (const polePosition of polePositions) {
+            const poleLightInstance = poleLight.clone();
+            poleLightInstance.position.set(polePosition.x, polePosition.y, polePosition.z);
+            this.scene.add(poleLightInstance);
+            const poleLightHelper = new PointLightHelper(poleLightInstance);
+            this.scene.add(poleLightHelper);
+        }
     }
 
     createHelpers() {
@@ -76,9 +98,10 @@ export default class Park {
         this.spinningChairs.update(timeDelta);
 
         if (this.sunLight) {
-            const dayTime = time / 2;
+            const dayTime = time / 5;
             this.sunLight.position.set(80 * Math.cos(dayTime), 80 * Math.sin(dayTime), 30);
             this.sunLight.intensity = Math.sin(dayTime) > 0 ? Math.sin(dayTime) : 0;
+            this.skySunUniform!.value.copy(this.sunLight.position);
         }
     }
 

@@ -8,6 +8,7 @@ export default class Otherland {
 
     constructor(container: HTMLDivElement) {
         this.renderer.shadowMap.enabled = true;
+        this.renderer.toneMappingExposure = 0.1;
         this.park = new Park(this.renderer.domElement);
         this.setupRendering(container);
     }

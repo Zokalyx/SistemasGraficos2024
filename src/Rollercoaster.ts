@@ -1,5 +1,5 @@
-import { AxesHelper, BoxGeometry, CylinderGeometry, DoubleSide, Group, Matrix4, Mesh, MeshPhongMaterial, Path, Scene, Vector3 } from "three";
-import { ParametricGeometry } from "three/examples/jsm/Addons.js";
+import { AxesHelper, BoxGeometry, CylinderGeometry, DoubleSide, EquirectangularReflectionMapping, Group, Matrix4, Mesh, MeshPhongMaterial, Path, RepeatWrapping, Scene, TextureLoader, Vector3 } from "three";
+import { ParametricGeometry, RGBELoader } from "three/examples/jsm/Addons.js";
 import CurveWithNormalsAndSpeed from "./CurveWithNormals";
 import { HeartCurve } from "three/examples/jsm/curves/CurveExtras.js";
 
@@ -17,7 +17,11 @@ export default class Rollercoaster {
         this.path = new CurveWithNormalsAndSpeed(this.points(), this.normals(), this.speed());
 
         const geometry = new ParametricGeometry(this.createParametricGeometryFunction(), 100, 400);
-        const material = new MeshPhongMaterial({ color: 0xff00ff });
+        const rgbeLoader = new RGBELoader();
+        const reflectionMap = rgbeLoader.load("../assets/limpopo_golf_course_1k.hdr", (texture) => {
+            texture.mapping = EquirectangularReflectionMapping;
+        });
+        const material = new MeshPhongMaterial({ color: 0xfaebcc, shininess: 1000, reflectivity: 0.5, envMap: reflectionMap });
         this.mesh = new Mesh(geometry, material);
         this.mesh.castShadow = true;
         this.mesh.receiveShadow = true;
@@ -56,7 +60,8 @@ export default class Rollercoaster {
 
         const floorLevel = -12;
         const coordinates = [0, 0.075, 0.15, 0.2, 0.26, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.63, 0.82, 0.87, 0.95];
-        const material = new MeshPhongMaterial({ color: 0x77778a });
+        const normalTexture = new TextureLoader().load("../assets/rust_normal.jpg");
+        const material = new MeshPhongMaterial({ color: 0x77778a, normalMap: normalTexture, shininess: 100 });
         for (const coordinate of coordinates) {
             // Ajusto para que el apoyo quede contra la parte de "abajo" de la pista.
             const position = this.path.getPosition(coordinate).sub(new Vector3(0.5, 0, 0).applyMatrix4(this.path.getRotationMatrix(coordinate)));
@@ -75,7 +80,16 @@ export default class Rollercoaster {
     createTunnels() {
         const tunnels = [];
 
-        const material = new MeshPhongMaterial({ color: 0x00aa00, side: DoubleSide });
+        const alphaTexture = new TextureLoader().load("../assets/star_alpha.jpg");
+        const diffuseTexture = new TextureLoader().load("../assets/start_diffuse.jpg");
+        alphaTexture.wrapS = RepeatWrapping;
+        alphaTexture.wrapT = RepeatWrapping;
+        alphaTexture.repeat.set(5, 5);
+        diffuseTexture.wrapS = RepeatWrapping;
+        diffuseTexture.wrapT = RepeatWrapping;
+        diffuseTexture.repeat.set(5, 5);
+        const material = new MeshPhongMaterial({ side: DoubleSide, alphaMap: alphaTexture, transparent: true, alphaTest: 0.5, shininess: 300, map: diffuseTexture });
+
 
         const geometry1 = new ParametricGeometry((u: number, v: number, target: Vector3) => {
             // Círculo
