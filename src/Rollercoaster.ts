@@ -2,6 +2,9 @@ import { AxesHelper, BoxGeometry, CylinderGeometry, DoubleSide, EquirectangularR
 import { ParametricGeometry, RGBELoader } from "three/examples/jsm/Addons.js";
 import CurveWithNormalsAndSpeed from "./CurveWithNormals";
 import { HeartCurve } from "three/examples/jsm/curves/CurveExtras.js";
+import rustNormalUrl from "../assets/rust_normal.jpg";
+import starAlphaUrl from "../assets/star_alpha.jpg";
+import starDiffuseUrl from "../assets/star_diffuse.jpg";
 
 export default class Rollercoaster {
     group = new Group();
@@ -60,7 +63,7 @@ export default class Rollercoaster {
 
         const floorLevel = -12;
         const coordinates = [0, 0.075, 0.15, 0.2, 0.26, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.63, 0.82, 0.87, 0.95];
-        const normalTexture = new TextureLoader().load("../assets/rust_normal.jpg");
+        const normalTexture = new TextureLoader().load(rustNormalUrl);
         const material = new MeshPhongMaterial({ color: 0x77778a, normalMap: normalTexture, shininess: 100 });
         for (const coordinate of coordinates) {
             // Ajusto para que el apoyo quede contra la parte de "abajo" de la pista.
@@ -80,8 +83,8 @@ export default class Rollercoaster {
     createTunnels() {
         const tunnels = [];
 
-        const alphaTexture = new TextureLoader().load("../assets/star_alpha.jpg");
-        const diffuseTexture = new TextureLoader().load("../assets/start_diffuse.jpg");
+        const alphaTexture = new TextureLoader().load(starAlphaUrl);
+        const diffuseTexture = new TextureLoader().load(starDiffuseUrl);
         alphaTexture.wrapS = RepeatWrapping;
         alphaTexture.wrapT = RepeatWrapping;
         alphaTexture.repeat.set(5, 5);

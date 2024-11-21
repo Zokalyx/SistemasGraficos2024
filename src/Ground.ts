@@ -1,5 +1,11 @@
 import { CircleGeometry, Group, Mesh, MeshPhongMaterial, PlaneGeometry, RepeatWrapping, TextureLoader, Vector2 } from "three";
 import { Water } from "three/examples/jsm/objects/Water2.js";
+import grassTextureUrl from "../assets/seamless_grass.jpg";
+import rockTextureUrl from "../assets/rock.jpg";
+import soilTextureUrl from "../assets/soil.jpg";
+import pathMaskUrl from "../assets/path.jpg";
+import waterNormal1Url from "../assets/water_normal_1.jpg";
+import waterNormal2Url from "../assets/water_normal_2.jpg";
 
 const customUnifoms = `
     uniform sampler2D grassTexture;
@@ -26,20 +32,20 @@ export default class Ground {
 
     constructor() {
         const loader = new TextureLoader();
-        const grassTexture = loader.load("../assets/seamless_grass.jpg");
+        const grassTexture = loader.load(grassTextureUrl);
         grassTexture.wrapS = RepeatWrapping;
         grassTexture.wrapT = RepeatWrapping;
 
-        const rockTexture = loader.load("../assets/rock.jpg");
+        const rockTexture = loader.load(rockTextureUrl);
         rockTexture.wrapS = RepeatWrapping;
         rockTexture.wrapT = RepeatWrapping;
 
-        const dirtTexture = loader.load("../assets/soil.jpg");
+        const dirtTexture = loader.load(soilTextureUrl);
 
         dirtTexture.wrapS = RepeatWrapping;
         dirtTexture.wrapT = RepeatWrapping;
 
-        const pathMask = loader.load("../assets/path.jpg");
+        const pathMask = loader.load(pathMaskUrl);
 
         const material = new MeshPhongMaterial({
             color: 0xffffff,
@@ -77,8 +83,8 @@ export default class Ground {
         ground.receiveShadow = true;
 
         const waterGeometry = new PlaneGeometry(20, 60);
-        const waterNormal1 = new TextureLoader().load("../assets/water_normal_1.jpg");
-        const waterNormal2 = new TextureLoader().load("../assets/water_normal_2.jpg");
+        const waterNormal1 = new TextureLoader().load(waterNormal1Url);
+        const waterNormal2 = new TextureLoader().load(waterNormal2Url);
         const water = new Water(waterGeometry, {
             color: 0x77aaff,
             scale: 2,
