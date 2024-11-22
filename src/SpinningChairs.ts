@@ -1,10 +1,12 @@
-import { BoxGeometry, CylinderGeometry, Group, Matrix4, Mesh, MeshPhongMaterial, Scene, Vector3 } from "three";
+import { BoxGeometry, CircleGeometry, CylinderGeometry, Group, Matrix4, Mesh, MeshPhongMaterial, PointLight, Scene, SphereGeometry, TextureLoader, Vector3 } from "three";
 import { BufferGeometryUtils } from "three/examples/jsm/Addons.js";
+import spiralUrl from "../assets/spiral.jpg";
 
 export default class SpinningChairs {
     group = new Group();
     spinningPart = new Group();
     mainPole: Mesh;
+    support: Mesh;
     chairs: Group[] = [];
     rotationSpeed = 0;
     rotationAngle = 0;
@@ -20,6 +22,12 @@ export default class SpinningChairs {
         this.mainPole.castShadow = true;
         this.mainPole.receiveShadow = true;
 
+        const supportMaterial = new MeshPhongMaterial({ color: 0x6688aa });
+        const supportGeometry = new CylinderGeometry(2.5, 5, height / 3);
+        this.support = new Mesh(supportGeometry, supportMaterial);
+        this.support.receiveShadow = true;
+        this.support.castShadow = true;
+
         this.createSpinningPart();
         this.spinningPart.position.setY(height);
 
@@ -28,7 +36,7 @@ export default class SpinningChairs {
 
     update(timeDelta: number) {
         this.time += timeDelta;
-        this.rotationSpeed = Math.cos(this.time / 2) + 1;
+        this.rotationSpeed = 1.5 * (Math.cos(this.time / 2) + 1);
         this.rotationAngle += this.rotationSpeed * timeDelta;
         this.spinningPart.setRotationFromAxisAngle(new Vector3(0, 1, 0), this.rotationAngle);
         this.positionChairs();
@@ -45,6 +53,29 @@ export default class SpinningChairs {
         roofPole.receiveShadow = true;
         roofPole.castShadow = true;
         this.spinningPart.add(roofPole);
+
+        const topSpiralGeometry = new CircleGeometry(15);
+        const texture = new TextureLoader().load(spiralUrl);
+        const topSpiralMaterial = new MeshPhongMaterial({ map: texture });
+        const spiralMesh = new Mesh(topSpiralGeometry, topSpiralMaterial);
+        spiralMesh.position.set(0, 1.01, 0);
+        spiralMesh.rotateX(-Math.PI / 2);
+        this.spinningPart.add(spiralMesh);
+
+        // const light = new PointLight();
+        const lightSphereGeometry = new SphereGeometry(0.5);
+        const lightSphereMaterial = new MeshPhongMaterial({ emissive: 0xdddd99 });
+        const lightSphereMesh = new Mesh(lightSphereGeometry, lightSphereMaterial);
+        const lightSphere = new Group();
+        // lightSphere.add(light);
+        lightSphere.add(lightSphereMesh);
+
+        const n = 7;
+        for (let i = 0; i < n; i++) {
+            const lightInstance = lightSphere.clone();
+            lightInstance.position.set(15 * Math.cos(2 * Math.PI * i / n), 0, 15 * Math.sin(2 * Math.PI * i / n));
+            this.spinningPart.add(lightInstance);
+        }
 
         const cableLength = 15;
 
@@ -94,6 +125,7 @@ export default class SpinningChairs {
     }
 
     load(scene: Scene) {
+        this.group.add(this.support);
         this.group.add(this.mainPole);
         this.group.add(this.spinningPart);
 

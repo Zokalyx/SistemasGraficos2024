@@ -1,27 +1,33 @@
-import { AxesHelper, BoxGeometry, CylinderGeometry, DoubleSide, EquirectangularReflectionMapping, Group, Matrix4, Mesh, MeshPhongMaterial, Path, RepeatWrapping, Scene, TextureLoader, Vector3 } from "three";
+import { AxesHelper, BoxGeometry, CameraHelper, CylinderGeometry, DoubleSide, EquirectangularReflectionMapping, Group, Matrix4, Mesh, MeshPhongMaterial, Path, PerspectiveCamera, RepeatWrapping, Scene, TextureLoader, Vector3 } from "three";
 import { ParametricGeometry, RGBELoader } from "three/examples/jsm/Addons.js";
 import CurveWithNormalsAndSpeed from "./CurveWithNormals";
 import { HeartCurve } from "three/examples/jsm/curves/CurveExtras.js";
 import rustNormalUrl from "../assets/rust_normal.jpg";
 import starAlphaUrl from "../assets/star_alpha.jpg";
 import starDiffuseUrl from "../assets/star_diffuse.jpg";
+// @ts-ignore
+import reflectionMapUrl from "../assets/limpopo_golf_course_1k.hdr";
 
 export default class Rollercoaster {
     group = new Group();
-    cart: Mesh;
+    cart: Group;
     cartCoordinate = 0;
     mesh: Mesh;
     helpers: AxesHelper[];
     path: CurveWithNormalsAndSpeed;
     tunnels: Mesh[];
     poles: Mesh[];
+    cartFrontCamera?: PerspectiveCamera;
+    cartBackCamera?: PerspectiveCamera;
+    cartSideCamera?: PerspectiveCamera;
+    cameraHelpers: CameraHelper[] = [];
 
     constructor(scene: Scene) {
         this.path = new CurveWithNormalsAndSpeed(this.points(), this.normals(), this.speed());
 
         const geometry = new ParametricGeometry(this.createParametricGeometryFunction(), 100, 400);
         const rgbeLoader = new RGBELoader();
-        const reflectionMap = rgbeLoader.load("../assets/limpopo_golf_course_1k.hdr", (texture) => {
+        const reflectionMap = rgbeLoader.load(reflectionMapUrl, (texture) => {
             texture.mapping = EquirectangularReflectionMapping;
         });
         const material = new MeshPhongMaterial({ color: 0xfaebcc, shininess: 1000, reflectivity: 0.5, envMap: reflectionMap });
@@ -31,9 +37,10 @@ export default class Rollercoaster {
         this.helpers = this.createHelpers();
 
         this.cart = this.createCart();
-        this.cart.castShadow = true;
-        this.cart.receiveShadow = true;
         this.updateCartPosition();
+        for (const cartHelper of this.cameraHelpers) {
+            scene.add(cartHelper);
+        }
 
         this.tunnels = this.createTunnels();
 
@@ -131,11 +138,45 @@ export default class Rollercoaster {
     }
 
     createCart() {
+        /* En el carrito, "adelante" es +y y "atrás" es -y */
+        /* Arriba es +x */
+
         const geometry = new BoxGeometry(1, 4, 2);
         geometry.applyMatrix4(new Matrix4().makeTranslation(1, 0, 0));
-        const material = new MeshPhongMaterial({ color: 0xff0000 });
+        // const material = new MeshPhongMaterial({ color: 0xff0000 });
+        // const mesh = new Mesh(geometry, material);
 
-        return new Mesh(geometry, material);
+        const frontCamera = new PerspectiveCamera(90);
+        this.cartFrontCamera = frontCamera;
+        this.cartFrontCamera.lookAt(0, 1, 0);
+        this.cartFrontCamera.position.set(1.5, 1, 0);
+        this.cartFrontCamera.rotateZ(-Math.PI / 2);
+
+        const frontHelper = new CameraHelper(frontCamera);
+        this.cameraHelpers.push(frontHelper);
+
+        const backCamera = new PerspectiveCamera(90);
+        this.cartBackCamera = backCamera;
+        this.cartBackCamera.lookAt(0, -1, 0);
+        this.cartBackCamera.position.set(1.5, -1, 0);
+        this.cartBackCamera.rotateZ(-Math.PI / 2);
+
+        const backHelper = new CameraHelper(backCamera)
+        this.cameraHelpers.push(backHelper);
+
+        const sideCamera = new PerspectiveCamera(90);
+        this.cartSideCamera = sideCamera;
+        sideCamera.lookAt(0, 0, 1);
+        sideCamera.position.set(1.5, 0, 0);
+        sideCamera.rotateZ(Math.PI / 2);
+
+        const cartGroup = new Group();
+        cartGroup.add(frontCamera);
+        cartGroup.add(backCamera);
+        cartGroup.add(sideCamera);
+        //cartGroup.add(mesh);
+
+        return cartGroup;
     }
 
     updateCart(timeDelta: number) {
@@ -373,6 +414,15 @@ export default class Rollercoaster {
         }
 
         return helpers;
+    }
+
+    setHelpers(value: boolean) {
+        for (const helper of this.helpers) {
+            helper.visible = value;
+        }
+        for (const helper of this.cameraHelpers) {
+            helper.visible = value;
+        }
     }
 
     createParametricGeometryFunction() {

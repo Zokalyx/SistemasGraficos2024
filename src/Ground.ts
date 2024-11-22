@@ -1,4 +1,4 @@
-import { CircleGeometry, Group, Mesh, MeshPhongMaterial, PlaneGeometry, RepeatWrapping, TextureLoader, Vector2 } from "three";
+import { CircleGeometry, ExtrudeGeometry, Group, Mesh, MeshPhongMaterial, PlaneGeometry, RepeatWrapping, Shape, TextureLoader, Vector2 } from "three";
 import { Water } from "three/examples/jsm/objects/Water2.js";
 import grassTextureUrl from "../assets/seamless_grass.jpg";
 import rockTextureUrl from "../assets/rock.jpg";
@@ -6,7 +6,6 @@ import soilTextureUrl from "../assets/soil.jpg";
 import pathMaskUrl from "../assets/path.jpg";
 import waterNormal1Url from "../assets/water_normal_1.jpg";
 import waterNormal2Url from "../assets/water_normal_2.jpg";
-
 const customUnifoms = `
     uniform sampler2D grassTexture;
     uniform sampler2D rockTexture;
@@ -71,8 +70,8 @@ export default class Ground {
             shader.fragmentShader = customUnifoms + shader.fragmentShader;
             shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", customShader);
 
-            console.debug(shader.vertexShader);
-            console.debug(shader.fragmentShader);
+            // console.debug(shader.vertexShader);
+            // console.debug(shader.fragmentShader);
         }
 
         const geometry = new CircleGeometry(1000);
@@ -94,11 +93,48 @@ export default class Ground {
             normalMap0: waterNormal1,
             normalMap1: waterNormal2,
         });
-        water.rotateX(-Math.PI / 2);
-        water.position.set(-20, 0.01, 0);
+
+        const frame = this.createPoolFrame(20, 60, 0.5);
+        const waterGroup = new Group();
+        waterGroup.add(water);
+        waterGroup.add(frame);
+        waterGroup.rotateX(-Math.PI / 2);
+        waterGroup.position.set(-20, 0.01, 0);
 
         this.group = new Group();
-        this.group.add(water);
+        this.group.add(waterGroup);
         this.group.add(ground);
+    }
+
+    createPoolFrame(width: number, height: number, radius: number) {
+        const outerShape = new Shape();
+        outerShape.moveTo(-width / 2 - radius, -height / 2 - radius);
+        outerShape.lineTo(width / 2 + radius, -height / 2 - radius);
+        outerShape.lineTo(width / 2 + radius, height / 2 + radius);
+        outerShape.lineTo(-width / 2 - radius, height / 2 + radius);
+        outerShape.lineTo(-width / 2 - radius, -height / 2 - radius);
+
+        const innerShape = new Shape();
+        innerShape.moveTo(-width / 2 + radius, -height / 2 + radius);
+        innerShape.lineTo(width / 2 - radius, -height / 2 + radius);
+        innerShape.lineTo(width / 2 - radius, height / 2 - radius);
+        innerShape.lineTo(-width / 2 + radius, height / 2 - radius);
+        innerShape.lineTo(-width / 2 + radius, -height / 2 + radius);
+
+        outerShape.holes.push(innerShape);
+
+        const extrudeSettings = {
+            depth: radius,
+            bevelEnabled: false,
+        };
+
+        const geometry = new ExtrudeGeometry(outerShape, extrudeSettings);
+        const material = new MeshPhongMaterial({ color: 0xeeeeee, shininess: 30 });
+
+        const mesh = new Mesh(geometry, material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        return mesh;
     }
 }
