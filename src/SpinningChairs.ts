@@ -61,7 +61,7 @@ export default class SpinningChairs {
         const texture = new TextureLoader().load(spiralUrl);
         const topSpiralMaterial = new MeshPhongMaterial({ map: texture });
         const spiralMesh = new Mesh(topSpiralGeometry, topSpiralMaterial);
-        spiralMesh.position.set(0, 1.01, 0);
+        spiralMesh.position.set(0, 1.05, 0);
         spiralMesh.rotateX(-Math.PI / 2);
         this.spinningPart.add(spiralMesh);
 

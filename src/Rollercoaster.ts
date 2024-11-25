@@ -75,6 +75,9 @@ export default class Rollercoaster {
         const floorLevel = -12;
         const coordinates = [0, 0.075, 0.15, 0.2, 0.26, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.63, 0.82, 0.87, 0.95];
         const normalTexture = new TextureLoader().load(rustNormalUrl);
+        normalTexture.wrapS = RepeatWrapping;
+        normalTexture.wrapT = RepeatWrapping;
+
         const material = new MeshPhongMaterial({ color: 0x77778a, normalMap: normalTexture, shininess: 100 });
 
         const topSphereGeometry = new SphereGeometry(0.5);
@@ -85,6 +88,10 @@ export default class Rollercoaster {
             const position = this.path.getPosition(coordinate).sub(new Vector3(0.5, 0, 0).applyMatrix4(this.path.getRotationMatrix(coordinate)));
             const height = position.y - floorLevel;
             const geometry = new CylinderGeometry(0.5, 0.5, height);
+            for (let i = 0; i < geometry.attributes.uv.count; i++) {
+                geometry.attributes.uv.setY(i, geometry.attributes.uv.getY(i) * height);
+            }
+
             const mesh = new Mesh(geometry, material);
             const poleGroup = new Group();
             poleGroup.position.set(position.x, position.y - height / 2, position.z);
@@ -219,13 +226,6 @@ export default class Rollercoaster {
         /* En el carrito, "adelante" es +y y "atrás" es -y */
         /* Arriba es +x */
         const sound = new PositionalAudio(audioListener);
-        const audioLoader = new AudioLoader();
-        audioLoader.load(rollercoasterSoundUrl, buffer => {
-            sound.setBuffer(buffer);
-            sound.setLoop(true);
-            sound.setRefDistance(5);
-            sound.play();
-        });
         this.cartAudio = sound;
 
         const [mainGeometry, frontGeometry, capGeometry] = this.createCartGeometry();
@@ -305,6 +305,17 @@ export default class Rollercoaster {
         cartGroup.add(seat2);
 
         return cartGroup;
+    }
+
+    startAudio() {
+        const audioLoader = new AudioLoader();
+        const sound = this.cartAudio!;
+        audioLoader.load(rollercoasterSoundUrl, buffer => {
+            sound.setBuffer(buffer);
+            sound.setLoop(true);
+            sound.setRefDistance(5);
+            sound.play();
+        });
     }
 
     updateCart(timeDelta: number, externalSpeed: number) {

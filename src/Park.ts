@@ -292,7 +292,7 @@ export default class Park {
         this.axesHelper!.visible = value;
         this.sunLightHelper!.visible = value;
         this.rollercoaster.setHelpers(value);
-        this.testObject.visible = value;
+        this.testObject.visible = false;
     }
 
     createHelpers() {
@@ -343,6 +343,10 @@ export default class Park {
         const mainColor = isDay ? dayColor : nightColor;
         const lerpFactor = Math.pow(isDay ? Math.sin(angularDayTime) : Math.sin(angularNightTime), 0.1);
         this.scene.fog!.color.lerpColors(intermediateColor, mainColor, lerpFactor);
+    }
+
+    startAudio() {
+        this.rollercoaster.startAudio();
     }
 
     update(time: number, timeDelta: number, automaticDayTimeUpdate: boolean, cartSpeed: number, chairsSpeed: number) {

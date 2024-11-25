@@ -9,6 +9,7 @@ export default class Otherland {
     parameters: any;
     container: HTMLDivElement;
     audioListener: AudioListener;
+    audioRunning: boolean = false;
 
     constructor(container: HTMLDivElement) {
         this.audioListener = new AudioListener();
@@ -58,7 +59,6 @@ export default class Otherland {
 
     setupGui() {
         const gui = new GUI();
-        const audioContext = new AudioContext();
 
         const audioFolder = gui.addFolder("Audio");
         const simulationFolder = gui.addFolder("Animación");
@@ -66,8 +66,10 @@ export default class Otherland {
         const extrasFolder = gui.addFolder("Extras");
 
         audioFolder.add(this.parameters, "mute").name("Silenciar").onChange(value => {
-            console.debug(audioContext);
-            audioContext.resume().then(() => { console.log("AudioContext resumed") });
+            if (!this.audioRunning) {
+                this.park.startAudio();
+                this.audioRunning = true;
+            }
             this.audioListener.setMasterVolume(value ? 0 : this.parameters.volume / 100);
         });
         simulationFolder.add(this.parameters, "cartSpeed", 0, 3).name("Velocidad de carrito");

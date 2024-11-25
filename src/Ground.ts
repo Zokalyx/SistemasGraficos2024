@@ -1,4 +1,4 @@
-import { CircleGeometry, ExtrudeGeometry, Group, Mesh, MeshPhongMaterial, PlaneGeometry, RepeatWrapping, Shape, TextureLoader, Vector2 } from "three";
+import { CircleGeometry, ExtrudeGeometry, Group, Mesh, MeshPhongMaterial, PlaneGeometry, RepeatWrapping, Shape, TextureLoader, Vector2, Vector3 } from "three";
 import { Water } from "three/examples/jsm/objects/Water2.js";
 import grassTextureUrl from "../assets/seamless_grass.jpg";
 import rockTextureUrl from "../assets/rock.jpg";
@@ -6,6 +6,8 @@ import soilTextureUrl from "../assets/soil.jpg";
 import pathMaskUrl from "../assets/path.jpg";
 import waterNormal1Url from "../assets/water_normal_1.jpg";
 import waterNormal2Url from "../assets/water_normal_2.jpg";
+import { ConvexGeometry } from "three/examples/jsm/Addons.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 const customUnifoms = `
     uniform sampler2D grassTexture;
@@ -104,7 +106,45 @@ export default class Ground {
 
         this.group = new Group();
         this.group.add(waterGroup);
+        this.group.add(this.createRocksMesh())
         this.group.add(ground);
+    }
+
+    createRocksMesh() {
+        const positions = [
+            new Vector2(-5, 2),
+            new Vector2(30, 20),
+            new Vector2(45, 10),
+            new Vector2(45, -10),
+            new Vector2(30, -30),
+            new Vector2(5, -25),
+            new Vector2(-45, -40),
+            new Vector2(-35, 0),
+        ];
+
+        const material = new MeshPhongMaterial({ color: 0x666666 });
+        let totalGeometry = null;
+
+        for (const position of positions) {
+            const n = Math.floor(Math.random() * 100) + 10;
+            const points = [];
+            for (let i = 0; i < n; i++) {
+                points.push(new Vector3(Math.random() * 3, Math.random() * 2, Math.random() * 3));
+            }
+            const geometry = new ConvexGeometry(points);
+            geometry.translate(position.x, -1, position.y);
+            if (totalGeometry === null) {
+                totalGeometry = geometry;
+            } else {
+                totalGeometry = mergeGeometries([totalGeometry, geometry]);
+            }
+        }
+
+        const mesh = new Mesh(totalGeometry!, material);
+        mesh.receiveShadow = true;
+        mesh.castShadow = true;
+
+        return mesh;
     }
 
     createPoolFrame(width: number, height: number, radius: number) {
