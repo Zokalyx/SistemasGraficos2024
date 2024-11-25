@@ -1,6 +1,7 @@
 import { AudioListener, WebGLRenderer } from "three";
 import Park from "./Park";
 import { GUI } from "dat.gui";
+import Stats from "three/examples/jsm/libs/stats.module.js";
 
 export default class Otherland {
     renderer = new WebGLRenderer({ antialias: true });
@@ -10,8 +11,12 @@ export default class Otherland {
     container: HTMLDivElement;
     audioListener: AudioListener;
     audioRunning: boolean = false;
+    stats: Stats;
 
     constructor(container: HTMLDivElement) {
+        this.stats = new Stats;
+        document.body.append(this.stats.dom);
+
         this.audioListener = new AudioListener();
 
         this.parameters = {
@@ -132,5 +137,7 @@ export default class Otherland {
 
         this.park.render(this.renderer);
         this.park.update(time / 1000, timeDelta, this.parameters.automaticDay, this.parameters.cartSpeed, this.parameters.chairsSpeed);
+
+        this.stats.update();
     }
 }
