@@ -1,8 +1,9 @@
-import { AxesHelper, BoxGeometry, CameraHelper, Color, CylinderGeometry, DirectionalLight, Fog, GridHelper, Group, HemisphereLight, IUniform, Light, Mesh, MeshPhongMaterial, PerspectiveCamera, PointLight, Quaternion, Scene, SpotLight, Vector3, WebGLRenderer } from "three";
-import { FirstPersonControls, OrbitControls, Sky } from "three/examples/jsm/Addons.js";
+import { AudioListener, AxesHelper, BoxGeometry, CameraHelper, Color, CylinderGeometry, DirectionalLight, Fog, GridHelper, Group, HemisphereLight, IUniform, Light, Mesh, MeshBasicMaterial, MeshPhongMaterial, MeshPhysicalMaterial, PerspectiveCamera, PointLight, Scene, SphereGeometry, SpotLight, Vector3, WebGLRenderer } from "three";
+import { FirstPersonControls, FontLoader, OrbitControls, Sky, TextGeometry } from "three/examples/jsm/Addons.js";
 import Rollercoaster from "./Rollercoaster";
 import SpinningChairs from "./SpinningChairs";
 import Ground from "./Ground";
+import fontUrl from "../assets/Lobster_Regular.txt";
 
 export default class Park {
     scene = new Scene();
@@ -23,10 +24,17 @@ export default class Park {
     targetting: any = null;
     flashlight: SpotLight;
 
-    constructor(domElement: HTMLElement) {
+    testObject: Mesh;
+
+    constructor(domElement: HTMLElement, audioListener: AudioListener) {
+        const testGeometry = new SphereGeometry();
+        const material = new MeshBasicMaterial({ color: 0xffffff });
+        this.testObject = new Mesh(testGeometry, material);
+        this.scene.add(this.testObject);
+
         this.scene.fog = new Fog(0x555555, 100, 1000);
 
-        this.rollercoaster = new Rollercoaster(this.scene);
+        this.rollercoaster = new Rollercoaster(this.scene, audioListener);
         this.rollercoaster.group.position.set(0, 10, 0);
 
         this.spinningChairs = new SpinningChairs(this.scene);
@@ -56,15 +64,55 @@ export default class Park {
         this.createHelpers();
         this.createSky();
         this.createLamps();
+
+        this.camera.add(audioListener);
+
+        this.createSign();
+    }
+
+    createSign() {
+        const loader = new FontLoader();
+        loader.load(fontUrl, font => {
+            const geometry = new TextGeometry("OTHERLAND", {
+                font: font,
+                size: 4,
+                depth: 2,
+            });
+
+            const material = new MeshPhysicalMaterial({
+                color: 0x049ef4,
+                metalness: 0.6,
+                roughness: 0.0,
+                iridescence: 1.0,
+                flatShading: true,
+            });
+            const mesh = new Mesh(geometry, material);
+
+            mesh.position.set(-5, 0, -15);
+            mesh.receiveShadow = true;
+            mesh.castShadow = true;
+
+            this.scene.add(mesh);
+        });
     }
 
     setFlashlight(value: boolean) {
-        this.flashlight.visible = value;
+        this.flashlight.intensity = value ? 20 : 0;
     }
 
     updateFlashLight() {
+        const pointAt = this.camera.localToWorld(new Vector3(0, 0, -10));
+        this.testObject.position.copy(pointAt);
         this.flashlight.position.copy(this.camera.position);
-        this.flashlight.rotation.setFromQuaternion(this.camera.getWorldQuaternion(new Quaternion()));
+        this.flashlight.target = this.testObject;
+    }
+
+    setCamera(camera: PerspectiveCamera, aspect: number) {
+        const listener = this.camera.children.find(child => child instanceof AudioListener);
+        this.camera.remove(listener!);
+        this.camera = camera;
+        this.camera.add(listener!);
+        this.updateAspect(aspect);
     }
 
     cycleCamera(aspect: number) {
@@ -79,7 +127,7 @@ export default class Park {
                 }
                 break;
             case this.firstPersonCamera:
-                this.setCartFrontCamera(aspect);
+                this.setChairCamera(aspect);
                 break;
             case this.rollercoaster.cartBackCamera:
                 this.setCartSideCamera(aspect);
@@ -90,54 +138,53 @@ export default class Park {
             case this.rollercoaster.cartSideCamera:
                 this.setOrbitalCamera(aspect);
                 break;
+            case this.spinningChairs.camera:
+                this.setCartFrontCamera(aspect);
+                break;
         }
-        this.updateAspect(aspect);
+    }
+
+    setChairCamera(aspect: number) {
+        this.setCamera(this.spinningChairs.camera!, aspect);
     }
 
     setCartFrontCamera(aspect: number) {
-        this.camera = this.rollercoaster.cartFrontCamera!;
-        this.updateAspect(aspect);
+        this.setCamera(this.rollercoaster.cartFrontCamera!, aspect);
     }
 
     setCartBackCamera(aspect: number) {
-        this.camera = this.rollercoaster.cartBackCamera!;
-        this.updateAspect(aspect);
+        this.setCamera(this.rollercoaster.cartBackCamera!, aspect);
     }
 
     setOrbitalCamera(aspect: number) {
-        this.camera = this.orbitalCamera;
+        this.setCamera(this.orbitalCamera, aspect);
         this.orbitalCameraControls.target.set(20, 0, 0);
         this.targetting = null;
         this.orbitalCameraControls.update();
-        this.updateAspect(aspect);
     }
 
     setRollercoasterOrbitalCamera(aspect: number) {
-        this.camera = this.orbitalCamera;
+        this.setCamera(this.orbitalCamera, aspect);
         // const position = this.rollercoaster.group.position;
         this.orbitalCameraControls.target.set(-10, 10, 10);
         this.targetting = this.rollercoaster;
         this.orbitalCameraControls.update();
-        this.updateAspect(aspect);
     }
 
     setChairsOrbitalCamera(aspect: number) {
-        this.camera = this.orbitalCamera;
+        this.setCamera(this.orbitalCamera, aspect);
         const position = this.spinningChairs.group.position;
         this.targetting = this.spinningChairs;
         this.orbitalCameraControls.target.set(position.x, position.y, position.z);
         this.orbitalCameraControls.update();
-        this.updateAspect(aspect);
     }
 
     setCartSideCamera(aspect: number) {
-        this.camera = this.rollercoaster.cartSideCamera!;
-        this.updateAspect(aspect);
+        this.setCamera(this.rollercoaster.cartSideCamera!, aspect);
     }
 
     setFirstPersonCamera(aspect: number) {
-        this.camera = this.firstPersonCamera;
-        this.updateAspect(aspect);
+        this.setCamera(this.firstPersonCamera, aspect);
     }
 
     createSky() {
@@ -245,6 +292,7 @@ export default class Park {
         this.axesHelper!.visible = value;
         this.sunLightHelper!.visible = value;
         this.rollercoaster.setHelpers(value);
+        this.testObject.visible = value;
     }
 
     createHelpers() {
@@ -297,9 +345,9 @@ export default class Park {
         this.scene.fog!.color.lerpColors(intermediateColor, mainColor, lerpFactor);
     }
 
-    update(time: number, timeDelta: number, automaticDayTimeUpdate: boolean) {
-        this.rollercoaster.updateCart(timeDelta);
-        this.spinningChairs.update(timeDelta);
+    update(time: number, timeDelta: number, automaticDayTimeUpdate: boolean, cartSpeed: number, chairsSpeed: number) {
+        this.rollercoaster.updateCart(timeDelta, cartSpeed);
+        this.spinningChairs.update(timeDelta, chairsSpeed);
 
         if (automaticDayTimeUpdate) {
             if (this.sunLight) {

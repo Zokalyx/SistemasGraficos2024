@@ -6,6 +6,7 @@ import soilTextureUrl from "../assets/soil.jpg";
 import pathMaskUrl from "../assets/path.jpg";
 import waterNormal1Url from "../assets/water_normal_1.jpg";
 import waterNormal2Url from "../assets/water_normal_2.jpg";
+
 const customUnifoms = `
     uniform sampler2D grassTexture;
     uniform sampler2D rockTexture;
@@ -22,7 +23,7 @@ const customShader = `
     maskUv = maskUv + 0.5;
     float pathMask = texture2D(pathMask, maskUv).r;
 
-    diffuseColor = mix(grassColor, dirtColor, smoothstep(0.5, 0.7, pathMask));
+    diffuseColor = mix(grassColor, dirtColor, smoothstep(0.35, 0.7, pathMask));
     diffuseColor = mix(diffuseColor, rockColor, smoothstep(0.75, 0.85, pathMask));
 `
 
