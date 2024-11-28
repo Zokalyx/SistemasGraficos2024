@@ -267,7 +267,7 @@ export default class Rollercoaster {
         this.cartAudio = sound;
 
         const [mainGeometry, frontGeometry, capGeometry] = this.createCartGeometry();
-        const material = new MeshPhongMaterial({ color: 0xff0000, side: DoubleSide, shininess: 100, reflectivity: 1 });
+        const material = new MeshPhongMaterial({ color: 0xff0000, side: DoubleSide, shininess: 300, reflectivity: 1 });
 
         // Parte central
         mainGeometry.applyMatrix4(new Matrix4().makeTranslation(1, 0, 0));
