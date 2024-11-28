@@ -5,63 +5,80 @@ import { HeartCurve } from "three/examples/jsm/curves/CurveExtras.js";
 import rustNormalUrl from "../assets/rust_normal.jpg";
 import starAlphaUrl from "../assets/star_alpha.jpg";
 import starDiffuseUrl from "../assets/star_diffuse.jpg";
+// Con vite no se puede importar archivos .hdr fácilmente, pero agregando
+// assetsInclude: ["**/*.hdr"] en vite.config.ts funcionó, aunque a typescript
+// no le gusta el import.
 // @ts-ignore
 import reflectionMapUrl from "../assets/limpopo_golf_course_1k.hdr";
 import rollercoasterSoundUrl from "../assets/rollercoaster.mp3";
 
+/*
+    Contiene la pista de la montaña rusa, el carrito, los soportes y los túneles
+*/
 export default class Rollercoaster {
+    // Todo lo de la pista en sí
     group = new Group();
+    rollercoasterPathMesh: Mesh;
+    rollercoasterPath: CurveWithNormalsAndSpeed;
+    supportingPoles: Group[];
+
+    // Carrito
     cart: Group;
     cartCoordinate = 0;
-    mesh: Mesh;
-    helpers: AxesHelper[];
-    path: CurveWithNormalsAndSpeed;
+    cartAudio?: PositionalAudio;
+
+    // Túneles
     tunnels: Mesh[];
-    poles: Group[];
+
+    // Cámaras
     cartFrontCamera?: PerspectiveCamera;
     cartBackCamera?: PerspectiveCamera;
     cartSideCamera?: PerspectiveCamera;
+
+    // Helpers
+    rollercoasterPathHelpers: AxesHelper[];
     cameraHelpers: CameraHelper[] = [];
 
-    cartAudio?: PositionalAudio;
 
     constructor(scene: Scene, audioListener: AudioListener) {
-        this.path = new CurveWithNormalsAndSpeed(this.points(), this.normals(), this.speed());
-
+        // Camino de la montaña rusa
+        this.rollercoasterPath = new CurveWithNormalsAndSpeed(this.points(), this.normals(), this.speed());
         const geometry = new ParametricGeometry(this.createParametricGeometryFunction(), 100, 400);
-        const rgbeLoader = new RGBELoader();
+        const rgbeLoader = new RGBELoader(); // Para HDR.
         const reflectionMap = rgbeLoader.load(reflectionMapUrl, (texture) => {
             texture.mapping = EquirectangularReflectionMapping;
         });
         const material = new MeshPhongMaterial({ color: 0xfaebcc, shininess: 1000, reflectivity: 0.5, envMap: reflectionMap });
-        this.mesh = new Mesh(geometry, material);
-        this.mesh.castShadow = true;
-        this.mesh.receiveShadow = true;
-        this.helpers = this.createHelpers();
+        this.rollercoasterPathMesh = new Mesh(geometry, material);
+        this.rollercoasterPathMesh.castShadow = true;
+        this.rollercoasterPathMesh.receiveShadow = true;
+        this.rollercoasterPathHelpers = this.createHelpers();
 
+        // Carrito
         this.cart = this.createCart(audioListener);
         this.updateCartPosition();
         for (const cartHelper of this.cameraHelpers) {
             scene.add(cartHelper);
         }
 
+        // Cosas extra
         this.tunnels = this.createTunnels();
+        this.supportingPoles = this.createPoles();
 
-        this.poles = this.createPoles();
-
+        // Cargar todo
         this.load(scene);
     }
 
     load(scene: Scene) {
-        this.group.add(this.mesh);
+        this.group.add(this.rollercoasterPathMesh);
         this.group.add(this.cart);
-        for (const helper of this.helpers) {
+        for (const helper of this.rollercoasterPathHelpers) {
             this.group.add(helper);
         }
         for (const tunnel of this.tunnels) {
             this.group.add(tunnel);
         }
-        for (const pole of this.poles) {
+        for (const pole of this.supportingPoles) {
             this.group.add(pole);
         }
 
@@ -73,36 +90,43 @@ export default class Rollercoaster {
         const poles = [];
 
         const floorLevel = -12;
-        const coordinates = [0, 0.075, 0.15, 0.2, 0.26, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.63, 0.82, 0.87, 0.95];
+
+        // Material
         const normalTexture = new TextureLoader().load(rustNormalUrl);
         normalTexture.wrapS = RepeatWrapping;
         normalTexture.wrapT = RepeatWrapping;
-
         const material = new MeshPhongMaterial({ color: 0x77778a, normalMap: normalTexture, shininess: 100 });
 
+        // Esto evita un corte abrupto de la columna arriba de todo
         const topSphereGeometry = new SphereGeometry(0.5);
         const topSphere = new Mesh(topSphereGeometry, material);
 
+        // Posicionar todo según la coordenada del camino (proporcional a distancia)
+        const coordinates = [0, 0.075, 0.15, 0.2, 0.26, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.63, 0.82, 0.87, 0.95];
         for (const coordinate of coordinates) {
-            // Ajusto para que el apoyo quede contra la parte de "abajo" de la pista.
-            const position = this.path.getPosition(coordinate).sub(new Vector3(0.5, 0, 0).applyMatrix4(this.path.getRotationMatrix(coordinate)));
+            // Ajusto para que el apoyo quede contra la parte de "abajo" de la pista y no se meta dentro del camino.
+            const position = this.rollercoasterPath.getPosition(coordinate).sub(new Vector3(0.5, 0, 0).applyMatrix4(this.rollercoasterPath.getRotationMatrix(coordinate)));
             const height = position.y - floorLevel;
+
+            // El soporte en sí
             const geometry = new CylinderGeometry(0.5, 0.5, height);
             for (let i = 0; i < geometry.attributes.uv.count; i++) {
+                // Ajustar para que el UV mantenga proporciones reales sin importar la altura del cilindro
                 geometry.attributes.uv.setY(i, geometry.attributes.uv.getY(i) * height);
             }
+            const cylinderMesh = new Mesh(geometry, material);
+            cylinderMesh.castShadow = true;
+            cylinderMesh.receiveShadow = true;
 
-            const mesh = new Mesh(geometry, material);
+            // Todo junto
             const poleGroup = new Group();
             poleGroup.position.set(position.x, position.y - height / 2, position.z);
-            poleGroup.add(mesh);
+            poleGroup.add(cylinderMesh);
             const topSphereInstance = topSphere.clone();
             topSphereInstance.position.setY(height / 2);
             poleGroup.add(topSphereInstance);
 
             poles.push(poleGroup);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
         }
 
         return poles;
@@ -111,6 +135,7 @@ export default class Rollercoaster {
     createTunnels() {
         const tunnels = [];
 
+        // Material
         const alphaTexture = new TextureLoader().load(starAlphaUrl);
         const diffuseTexture = new TextureLoader().load(starDiffuseUrl);
         alphaTexture.wrapS = RepeatWrapping;
@@ -121,7 +146,7 @@ export default class Rollercoaster {
         diffuseTexture.repeat.set(5, 5);
         const material = new MeshPhongMaterial({ side: DoubleSide, alphaMap: alphaTexture, transparent: true, alphaTest: 0.5, shininess: 300, map: diffuseTexture });
 
-
+        // Túnel 1
         const geometry1 = new ParametricGeometry((u: number, v: number, target: Vector3) => {
             // Círculo
             const radius = 2;
@@ -129,15 +154,14 @@ export default class Rollercoaster {
             const scaleY = 3 + 0.75 * Math.cos(6 * Math.PI * v + Math.PI / 2);
             target.set(v * 30, scaleY * radius * Math.sin(2 * Math.PI * u), -radius * scaleZ * Math.cos(2 * Math.PI * u));
         }, 100, 100);
-
         const mesh1 = new Mesh(geometry1, material);
         mesh1.position.set(-15, 10, 45)
         mesh1.rotation.set(0, 0, -0.1);
         mesh1.castShadow = true;
         mesh1.receiveShadow = true;
-
         tunnels.push(mesh1);
 
+        // Túnel 2
         const curve = new HeartCurve(0.5);
         const geometry2 = new ParametricGeometry((u: number, v: number, target: Vector3) => {
             const x = curve.getPoint(u).x;
@@ -146,34 +170,38 @@ export default class Rollercoaster {
             target.set(x, y, v * 25);
             target.applyMatrix4(rotationMatrix);
         }, 100, 100);
-
         const mesh2 = new Mesh(geometry2, material);
         mesh2.position.set(-19, 0, -23)
         mesh2.rotation.set(0, 0, 0);
         mesh2.castShadow = true;
         mesh2.receiveShadow = true;
-
         tunnels.push(mesh2);
 
         return tunnels;
     }
 
     cartProfile() {
+        // Parámetros de un rectángulo redondeado
+        // No viene cerrado - se puede cerrar aparte.
         const r = 0.2;
         const h = 1.6 / 2;
         const w = 1.2 / 2;
 
         const profile = new Path();
 
+        // bottom-right
         profile.moveTo(w, -h + r);
         profile.bezierCurveTo(w, -h, w, -h, w - r, -h);
 
+        // bottom-left
         profile.lineTo(-w + r, -h);
         profile.bezierCurveTo(-w, -h, -w, -h, -w, -h + r);
 
+        // top-left
         profile.lineTo(-w, h - r);
         profile.bezierCurveTo(-w, h, -w, h, -w + r, h);
 
+        // top-right
         profile.lineTo(w - r, h);
         profile.bezierCurveTo(w, h, w, h, w, h - r);
 
@@ -183,12 +211,14 @@ export default class Rollercoaster {
     createCartGeometry() {
         const profile = this.cartProfile();
 
+        // Parte central, sin cerrar, donde entran las sillas
         const mainGeometry = new ParametricGeometry((u, v, target) => {
             const point2D = profile.getPoint(u);
             const point = new Vector3(point2D.x, 2 * v - 1, point2D.y);
             target.set(point.x, point.y, point.z);
         }, 50, 50);
 
+        // Parte "piramidal", con el perfil cerrado
         profile.closePath();
         const frontGeometry = new ParametricGeometry((u, v, target) => {
             const point2D = profile.getPoint(u);
@@ -198,6 +228,7 @@ export default class Rollercoaster {
             target.set(point.x, point.y, point.z);
         }, 50, 10);
 
+        // Tapas 2D
         const capGeometry = new ShapeGeometry(new Shape(profile.getPoints()));
         capGeometry.rotateX(Math.PI / 2);
         capGeometry.scale(0.666, 0.666, 0.666);
@@ -206,11 +237,13 @@ export default class Rollercoaster {
     }
 
     createChairMesh() {
-        const seatGeometry = new BoxGeometry(0.2, 0.5, 0.8);
         const material = new MeshPhongMaterial({ color: 0x123456 });
 
+        // Asiento
+        const seatGeometry = new BoxGeometry(0.2, 0.5, 0.8);
         const seatMesh = new Mesh(seatGeometry, material);
 
+        // Respaldo
         const backGeometry = new BoxGeometry(1.0, 0.2, 0.8);
         const backMesh = new Mesh(backGeometry, material);
         backMesh.position.set(0, -0.3, 0);
@@ -225,37 +258,46 @@ export default class Rollercoaster {
     createCart(audioListener: AudioListener) {
         /* En el carrito, "adelante" es +y y "atrás" es -y */
         /* Arriba es +x */
+
+        // Audio
         const sound = new PositionalAudio(audioListener);
         this.cartAudio = sound;
 
         const [mainGeometry, frontGeometry, capGeometry] = this.createCartGeometry();
-        mainGeometry.applyMatrix4(new Matrix4().makeTranslation(1, 0, 0));
         const material = new MeshPhongMaterial({ color: 0xff0000, side: DoubleSide });
+
+        // Parte central
+        mainGeometry.applyMatrix4(new Matrix4().makeTranslation(1, 0, 0));
         const mesh = new Mesh(mainGeometry, material);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
 
+        // "Nariz" del carrito
         const frontMesh = new Mesh(frontGeometry, material);
         frontMesh.castShadow = true;
         frontMesh.receiveShadow = true;
         frontMesh.position.set(1, 1, 0);
 
+        // "Cola" del carrito
         const backMesh = new Mesh(frontGeometry, material);
         backMesh.castShadow = true;
         backMesh.receiveShadow = true;
         backMesh.rotateX(Math.PI);
         backMesh.position.set(1, -1, 0);
 
+        // Tapa trasera
         const backCap = new Mesh(capGeometry, material);
         backCap.castShadow = true;
         backMesh.receiveShadow = true;
         backCap.position.set(1, -2, 0);
 
+        // Tapa frontal
         const frontCap = new Mesh(capGeometry, material);
         frontCap.castShadow = true;
         frontCap.receiveShadow = true;
         frontCap.position.set(1, 2, 0);
 
+        // Asientos
         const seat1 = this.createChairMesh();
         seat1.castShadow = true;
         seat1.receiveShadow = true;
@@ -266,6 +308,7 @@ export default class Rollercoaster {
         seat2.receiveShadow = true;
         seat2.position.set(1, -0.5, 0);
 
+        // Cámara frontal
         const frontCamera = new PerspectiveCamera(90);
         this.cartFrontCamera = frontCamera;
         this.cartFrontCamera.lookAt(0, 1, 0);
@@ -276,6 +319,7 @@ export default class Rollercoaster {
         const frontHelper = new CameraHelper(frontCamera);
         this.cameraHelpers.push(frontHelper);
 
+        // Cámara trasera
         const backCamera = new PerspectiveCamera(90);
         this.cartBackCamera = backCamera;
         this.cartBackCamera.lookAt(0, -1, 0);
@@ -285,12 +329,14 @@ export default class Rollercoaster {
         const backHelper = new CameraHelper(backCamera)
         this.cameraHelpers.push(backHelper);
 
+        // Cámara lateral
         const sideCamera = new PerspectiveCamera(90);
         this.cartSideCamera = sideCamera;
         sideCamera.lookAt(-0.5, 0, 1);
         sideCamera.position.set(5, 0, -5);
         sideCamera.rotateZ(Math.PI / 2);
 
+        // Combinar todo
         const cartGroup = new Group();
         cartGroup.add(frontCamera);
         cartGroup.add(backCamera);
@@ -319,21 +365,22 @@ export default class Rollercoaster {
     }
 
     updateCart(timeDelta: number, externalSpeed: number) {
-        const speed = this.path.getSpeed(this.cartCoordinate);
+        const speed = this.rollercoasterPath.getSpeed(this.cartCoordinate);
         this.cartCoordinate = (this.cartCoordinate + speed * externalSpeed * timeDelta) % 1;
         this.updateCartPosition();
     }
 
     updateCartPosition() {
-        const positionMatrix = this.path.getTranslationMatrix(this.cartCoordinate);
-        const rotationMatrix = this.path.getRotationMatrix(this.cartCoordinate);
+        const positionMatrix = this.rollercoasterPath.getTranslationMatrix(this.cartCoordinate);
+        const rotationMatrix = this.rollercoasterPath.getRotationMatrix(this.cartCoordinate);
 
         this.cart.position.set(0, 0, 0);
         this.cart.position.applyMatrix4(positionMatrix);
         this.cart.rotation.setFromRotationMatrix(rotationMatrix);
     }
 
-    profile() {
+    rollercoasterProfile() {
+        // Basado en el enunciado del TP (aproximado)
         const curve = new Path();
         curve.moveTo(-0.9, 0.5);
         curve.lineTo(-0.9, 0.3);
@@ -355,7 +402,7 @@ export default class Rollercoaster {
     speed() {
         return [
             // 1-5: Comienzo y primera mitad de loop
-            0.75,
+            0.3,
             0.75,
             0.5,
             0.5,
@@ -411,10 +458,10 @@ export default class Rollercoaster {
             1.5,
 
             // Termina
-            1,
-            0.7,
+            1.3,
+            1.1,
+            0.9,
             0.5,
-            0.1,
         ].map(speed => speed * 0.05);
     }
 
@@ -548,8 +595,8 @@ export default class Rollercoaster {
 
         for (let i = 0; i < pointCount; i++) {
             const u = i / (pointCount - 1);
-            const point = this.path.getPosition(u);
-            const matrix = this.path.getRotationMatrix(u);
+            const point = this.rollercoasterPath.getPosition(u);
+            const matrix = this.rollercoasterPath.getRotationMatrix(u);
 
             const helper = new AxesHelper(3);
             helper.position.set(point.x, point.y, point.z);
@@ -561,7 +608,7 @@ export default class Rollercoaster {
     }
 
     setHelpers(value: boolean) {
-        for (const helper of this.helpers) {
+        for (const helper of this.rollercoasterPathHelpers) {
             helper.visible = value;
         }
         for (const helper of this.cameraHelpers) {
@@ -570,14 +617,14 @@ export default class Rollercoaster {
     }
 
     createParametricGeometryFunction() {
-        const profile = this.profile();
+        const profile = this.rollercoasterProfile();
 
         return (u: number, v: number, target: Vector3) => {
             const pointInProfile = profile.getPoint(u);
 
             const point = new Vector3(pointInProfile.y, 0, -pointInProfile.x);
-            const matrizNivelTraslación = this.path.getTranslationMatrix(v);
-            const matrizNivelRotación = this.path.getRotationMatrix(v);
+            const matrizNivelTraslación = this.rollercoasterPath.getTranslationMatrix(v);
+            const matrizNivelRotación = this.rollercoasterPath.getRotationMatrix(v);
             point.applyMatrix4(matrizNivelRotación);
             point.applyMatrix4(matrizNivelTraslación);
 

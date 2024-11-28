@@ -28,11 +28,14 @@ const customShader = `
     diffuseColor = mix(grassColor, dirtColor, smoothstep(0.35, 0.7, pathMask));
     diffuseColor = mix(diffuseColor, rockColor, smoothstep(0.75, 0.85, pathMask));
 `
-
+/*
+    Contiene el piso, rocas y la pileta
+*/
 export default class Ground {
     group: Group;
 
     constructor() {
+        // Texturas
         const loader = new TextureLoader();
         const grassTexture = loader.load(grassTextureUrl);
         grassTexture.wrapS = RepeatWrapping;
@@ -43,12 +46,12 @@ export default class Ground {
         rockTexture.wrapT = RepeatWrapping;
 
         const dirtTexture = loader.load(soilTextureUrl);
-
         dirtTexture.wrapS = RepeatWrapping;
         dirtTexture.wrapT = RepeatWrapping;
 
         const pathMask = loader.load(pathMaskUrl);
 
+        // Material base
         const material = new MeshPhongMaterial({
             color: 0xffffff,
             specular: 0xffffff,
@@ -62,8 +65,10 @@ export default class Ground {
             pathMask: { value: pathMask, type: "t" },
         };
 
+        // Asegurarse de poder usar las coordenadas `vUv` en el shader
         material.defines = { USE_UV: true };
 
+        // Reemplazar el shader del MeshPhongMaterial y definir uniforms
         material.onBeforeCompile = (shader) => {
             shader.uniforms.grassTexture = uniforms.grassTexture;
             shader.uniforms.rockTexture = uniforms.rockTexture;
@@ -77,13 +82,14 @@ export default class Ground {
             // console.debug(shader.fragmentShader);
         }
 
+        // Piso en sí
         const geometry = new CircleGeometry(1000);
-
         const ground = new Mesh(geometry, material);
         ground.rotateX(-Math.PI / 2);
         ground.rotateZ(Math.PI / 2);
         ground.receiveShadow = true;
 
+        // Piletita (agua)
         const waterGeometry = new PlaneGeometry(20, 60);
         const waterNormal1 = new TextureLoader().load(waterNormal1Url);
         const waterNormal2 = new TextureLoader().load(waterNormal2Url);
@@ -97,6 +103,7 @@ export default class Ground {
             normalMap1: waterNormal2,
         });
 
+        // Borde de pileta
         const frame = this.createPoolFrame(20, 60, 0.5);
         const waterGroup = new Group();
         waterGroup.add(water);
@@ -104,6 +111,7 @@ export default class Ground {
         waterGroup.rotateX(-Math.PI / 2);
         waterGroup.position.set(-20, 0.01, 0);
 
+        // Agregar todo
         this.group = new Group();
         this.group.add(waterGroup);
         this.group.add(this.createRocksMesh())
@@ -123,16 +131,23 @@ export default class Ground {
         ];
 
         const material = new MeshPhongMaterial({ color: 0x666666 });
+
+        // Se combinará todo en una única geometría y finalmente en un único mesh.
         let totalGeometry = null;
 
         for (const position of positions) {
+            // Nube de puntos
             const n = Math.floor(Math.random() * 100) + 10;
             const points = [];
             for (let i = 0; i < n; i++) {
                 points.push(new Vector3(Math.random() * 3, Math.random() * 2, Math.random() * 3));
             }
+
+            // Convex Hull
             const geometry = new ConvexGeometry(points);
             geometry.translate(position.x, -1, position.y);
+
+            // Unir geometrías en una sola
             if (totalGeometry === null) {
                 totalGeometry = geometry;
             } else {
@@ -140,6 +155,7 @@ export default class Ground {
             }
         }
 
+        // Recién ahora crear un solo mesh
         const mesh = new Mesh(totalGeometry!, material);
         mesh.receiveShadow = true;
         mesh.castShadow = true;
@@ -148,6 +164,7 @@ export default class Ground {
     }
 
     createPoolFrame(width: number, height: number, radius: number) {
+        // Rectángulo exterior
         const outerShape = new Shape();
         outerShape.moveTo(-width / 2 - radius, -height / 2 - radius);
         outerShape.lineTo(width / 2 + radius, -height / 2 - radius);
@@ -155,6 +172,7 @@ export default class Ground {
         outerShape.lineTo(-width / 2 - radius, height / 2 + radius);
         outerShape.lineTo(-width / 2 - radius, -height / 2 - radius);
 
+        // Rectángulo interior
         const innerShape = new Shape();
         innerShape.moveTo(-width / 2 + radius, -height / 2 + radius);
         innerShape.lineTo(width / 2 - radius, -height / 2 + radius);

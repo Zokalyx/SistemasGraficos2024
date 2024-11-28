@@ -5,26 +5,37 @@ import SpinningChairs from "./SpinningChairs";
 import Ground from "./Ground";
 import fontUrl from "../assets/Lobster_Regular.txt";
 
+/*
+    Contiene la escena del parque de diversiones
+*/
 export default class Park {
+    /* Escena */
     scene = new Scene();
-    camera: PerspectiveCamera;
-    rollercoaster: Rollercoaster;
-    spinningChairs: SpinningChairs;
+
+    /* Cámaras propias de esta clase */
+    activeCamera: PerspectiveCamera;
+    orbitalCamera: PerspectiveCamera;
+    orbitalCameraControls: OrbitControls;
+    orbitalCameraTarget: any = null;
+    firstPersonCamera: PerspectiveCamera;
+    firstPersonControls: FirstPersonControls;
+
+    /* Luces y cielo */
     sunLight?: DirectionalLight;
-    skySunUniform?: IUniform<any>;
+    flashlight: SpotLight;
     lampLights: Light[] = [];
     lampBoxMaterial?: MeshPhongMaterial;
+    skySunUniform?: IUniform<any>;
+
+    /* Helpers */
     planeHelper?: GridHelper;
     axesHelper?: AxesHelper;
     sunLightHelper?: CameraHelper;
-    orbitalCamera: PerspectiveCamera;
-    orbitalCameraControls: OrbitControls;
-    firstPersonCamera: PerspectiveCamera;
-    firstPersonControls: FirstPersonControls;
-    targetting: any = null;
-    flashlight: SpotLight;
-
     testObject: Mesh;
+
+    /* Subcomponentes */
+    rollercoaster: Rollercoaster;
+    spinningChairs: SpinningChairs;
 
     constructor(domElement: HTMLElement, audioListener: AudioListener) {
         const testGeometry = new SphereGeometry();
@@ -34,25 +45,27 @@ export default class Park {
 
         this.scene.fog = new Fog(0x555555, 100, 1000);
 
+        // Montaña rusa
         this.rollercoaster = new Rollercoaster(this.scene, audioListener);
         this.rollercoaster.group.position.set(0, 10, 0);
 
+        // Sillas
         this.spinningChairs = new SpinningChairs(this.scene);
         this.spinningChairs.group.position.set(40, 0, -40);
 
+        // Piso
         this.scene.add(new Ground().group);
 
-        this.camera = new PerspectiveCamera();
-        this.camera.position.set(70, 70, 70);
-        this.orbitalCameraControls = new OrbitControls(this.camera, domElement);
-        this.orbitalCamera = this.camera;
+        // Cámara orbital
+        this.activeCamera = new PerspectiveCamera();
+        this.activeCamera.position.set(70, 70, 70);
+        this.orbitalCameraControls = new OrbitControls(this.activeCamera, domElement);
+        this.orbitalCamera = this.activeCamera;
         this.orbitalCameraControls.target.set(20, 0, 0);
         this.orbitalCameraControls.update();
+        this.activeCamera.add(audioListener);
 
-        this.flashlight = new SpotLight(0xffffff, 20, 0, Math.PI / 10, 0.2, 0.3);
-        this.updateFlashLight();
-        this.scene.add(this.flashlight);
-
+        // Cámara primer persona
         this.firstPersonCamera = new PerspectiveCamera();
         this.firstPersonCamera.lookAt(1, 0, 0);
         this.firstPersonCamera.position.set(1, 10, 1);
@@ -60,17 +73,22 @@ export default class Park {
         this.firstPersonControls = controls;
         controls.lookSpeed = 0.01;
 
+        // Luces y cielo
+        this.flashlight = new SpotLight(0xffffff, 20, 0, Math.PI / 10, 0.2, 0.3);
+        this.updateFlashLight();
+        this.scene.add(this.flashlight);
         this.createLights();
-        this.createHelpers();
         this.createSky();
         this.createLamps();
 
-        this.camera.add(audioListener);
+        // Helpers
+        this.createHelpers();
 
-        this.createSign();
+        // Letras 3D
+        this.create3DLetters();
     }
 
-    createSign() {
+    create3DLetters() {
         const loader = new FontLoader();
         loader.load(fontUrl, font => {
             const geometry = new TextGeometry("OTHERLAND", {
@@ -101,28 +119,28 @@ export default class Park {
     }
 
     updateFlashLight() {
-        const pointAt = this.camera.localToWorld(new Vector3(0, 0, -10));
+        const pointAt = this.activeCamera.localToWorld(new Vector3(0, 0, -10));
         this.testObject.position.copy(pointAt);
-        this.flashlight.position.copy(this.camera.position);
+        this.flashlight.position.copy(this.activeCamera.position);
         this.flashlight.target = this.testObject;
     }
 
-    setCamera(camera: PerspectiveCamera, aspect: number) {
-        const listener = this.camera.children.find(child => child instanceof AudioListener);
-        this.camera.remove(listener!);
-        this.camera = camera;
-        this.camera.add(listener!);
+    switchCameraTo(camera: PerspectiveCamera, aspect: number) {
+        const listener = this.activeCamera.children.find(child => child instanceof AudioListener);
+        this.activeCamera.remove(listener!);
+        this.activeCamera = camera;
+        this.activeCamera.add(listener!);
         this.updateAspect(aspect);
     }
 
     cycleCamera(aspect: number) {
-        switch (this.camera) {
+        switch (this.activeCamera) {
             case this.orbitalCamera:
-                if (this.targetting === null) {
+                if (this.orbitalCameraTarget === null) {
                     this.setRollercoasterOrbitalCamera(aspect);
-                } else if (this.targetting === this.rollercoaster) {
+                } else if (this.orbitalCameraTarget === this.rollercoaster) {
                     this.setChairsOrbitalCamera(aspect);
-                } else if (this.targetting === this.spinningChairs) {
+                } else if (this.orbitalCameraTarget === this.spinningChairs) {
                     this.setFirstPersonCamera(aspect);
                 }
                 break;
@@ -145,46 +163,47 @@ export default class Park {
     }
 
     setChairCamera(aspect: number) {
-        this.setCamera(this.spinningChairs.camera!, aspect);
+        this.switchCameraTo(this.spinningChairs.camera!, aspect);
     }
 
     setCartFrontCamera(aspect: number) {
-        this.setCamera(this.rollercoaster.cartFrontCamera!, aspect);
+        this.switchCameraTo(this.rollercoaster.cartFrontCamera!, aspect);
     }
 
     setCartBackCamera(aspect: number) {
-        this.setCamera(this.rollercoaster.cartBackCamera!, aspect);
+        this.switchCameraTo(this.rollercoaster.cartBackCamera!, aspect);
     }
 
     setOrbitalCamera(aspect: number) {
-        this.setCamera(this.orbitalCamera, aspect);
+        this.switchCameraTo(this.orbitalCamera, aspect);
         this.orbitalCameraControls.target.set(20, 0, 0);
-        this.targetting = null;
+        this.orbitalCameraTarget = null;
         this.orbitalCameraControls.update();
     }
 
     setRollercoasterOrbitalCamera(aspect: number) {
-        this.setCamera(this.orbitalCamera, aspect);
+        this.switchCameraTo(this.orbitalCamera, aspect);
         // const position = this.rollercoaster.group.position;
+        // Posición hardcodeada para que quede bien centrada la cámara.
         this.orbitalCameraControls.target.set(-10, 10, 10);
-        this.targetting = this.rollercoaster;
+        this.orbitalCameraTarget = this.rollercoaster;
         this.orbitalCameraControls.update();
     }
 
     setChairsOrbitalCamera(aspect: number) {
-        this.setCamera(this.orbitalCamera, aspect);
+        this.switchCameraTo(this.orbitalCamera, aspect);
         const position = this.spinningChairs.group.position;
-        this.targetting = this.spinningChairs;
+        this.orbitalCameraTarget = this.spinningChairs;
         this.orbitalCameraControls.target.set(position.x, position.y, position.z);
         this.orbitalCameraControls.update();
     }
 
     setCartSideCamera(aspect: number) {
-        this.setCamera(this.rollercoaster.cartSideCamera!, aspect);
+        this.switchCameraTo(this.rollercoaster.cartSideCamera!, aspect);
     }
 
     setFirstPersonCamera(aspect: number) {
-        this.setCamera(this.firstPersonCamera, aspect);
+        this.switchCameraTo(this.firstPersonCamera, aspect);
     }
 
     createSky() {
@@ -202,17 +221,14 @@ export default class Park {
     }
 
     createLights() {
-        // const skycubeGeometry = new CylinderGeometry(1000, 1000, 1000);
-        // const skycubeMaterial = new MeshBasicMaterial({ color: 0x33ddff, side: BackSide });
-        // const skycube = new Mesh(skycubeGeometry, skycubeMaterial);
-        // this.scene.add(skycube);
-
+        // Luz solar
         const sunlight = new DirectionalLight();
         sunlight.position.set(0, 60, 30);
         sunlight.castShadow = true;
         this.scene.add(sunlight);
         this.sunLight = sunlight;
 
+        // Sombra de luz solar
         sunlight.shadow.camera.left = -80;
         sunlight.shadow.camera.right = 80;
         sunlight.shadow.camera.top = 80;
@@ -223,28 +239,32 @@ export default class Park {
         this.scene.add(sunlightShadowHelper);
         this.sunLightHelper = sunlightShadowHelper;
 
+        // Luz ambiente
         const hemisphereLight = new HemisphereLight(0xaaaaff, 0xaaffaa, 0.5);
         this.scene.add(hemisphereLight);
     }
 
     createLamps() {
+        // Parámetros
         const height = 7;
         const radius = 0.5;
 
-        const poleLightGroup = new Group();
+        // Luz en sí
         const poleLight = new PointLight(0xffffaa, 0, 0, 1);
-        // const poleLightHelper = new PointLightHelper(poleLight);
-        // poleLightGroup.add(poleLightHelper);
-        poleLightGroup.add(poleLight);
 
+        // Cajita donde está la luz
         const poleBoxMaterial = new MeshPhongMaterial({ emissive: 0xffffaa, emissiveIntensity: 0 });
         this.lampBoxMaterial = poleBoxMaterial;
         const poleBoxGeometry = new BoxGeometry(radius * 2, radius * 2, radius * 2);
         const poleBox = new Mesh(poleBoxGeometry, poleBoxMaterial);
-        poleLightGroup.add(poleBox);
 
+        // Conjunto cajita + luz
+        const poleLightGroup = new Group();
+        poleLightGroup.add(poleLight);
+        poleLightGroup.add(poleBox);
         poleLightGroup.position.set(0, height + radius, 0);
 
+        // Poste en sí
         const poleMaterial = new MeshPhongMaterial({ color: 0x666666 });
         const poleGeometry = new CylinderGeometry(radius, radius, height);
         const poleMesh = new Mesh(poleGeometry, poleMaterial);
@@ -252,16 +272,19 @@ export default class Park {
         poleMesh.castShadow = true;
         poleMesh.receiveShadow = true;
 
+        // Base del poste
         const poleBaseGeometry = new CylinderGeometry(radius * 2, radius * 3, radius);
         const poleBase = new Mesh(poleBaseGeometry, poleMaterial);
         poleBase.castShadow = true;
         poleBase.receiveShadow = true;
 
+        // Lampara completa
         const lamp = new Group();
         lamp.add(poleLightGroup);
         lamp.add(poleMesh);
         lamp.add(poleBase);
 
+        // Posicionar todo
         const polePositions = [
             new Vector3(-40, 0, -40),
             new Vector3(20, 0, -20),
@@ -306,8 +329,8 @@ export default class Park {
     }
 
     updateAspect(aspect: number) {
-        this.camera.aspect = aspect;
-        this.camera.updateProjectionMatrix();
+        this.activeCamera.aspect = aspect;
+        this.activeCamera.updateProjectionMatrix();
         this.firstPersonControls.handleResize();
     }
 
@@ -316,27 +339,34 @@ export default class Park {
             return;
         }
 
+        // "tiempo angular" sería convertir de 0 a 24 -> 0 a 2pi
         const angularTime = 2 * Math.PI * time / 24;
 
+        // Definir día o noche
         const dawn = 6;
         const dusk = 18;
         const isDay = time >= dawn && time < dusk;
 
+        // Cuánto tiempo pasó desde el amanecer
         const dayTime = time - dawn;
         const angularDayTime = 2 * Math.PI * dayTime / 24;
 
+        // Cuánto tiempo pasó desde el anochecer
         const nightTime = time - dusk;
         const angularNightTime = 2 * Math.PI * nightTime / 24;
 
+        // Mover el sol
         this.sunLight.position.set(80 * Math.sin(angularTime), -80 * Math.cos(angularTime), 30);
         this.sunLight.intensity = isDay ? Math.sin(angularDayTime) : 0;
         this.skySunUniform!.value.copy(this.sunLight.position);
 
+        // Ajustar lámparas
         for (const lampLight of this.lampLights) {
             lampLight.intensity = isDay ? 0 : 20 * Math.sin(angularNightTime);
         }
         this.lampBoxMaterial!.emissiveIntensity = isDay ? 0 : Math.sin(angularNightTime);
 
+        // Ajustar color de fog
         const dayColor = new Color(0xcccccc);
         const nightColor = new Color(0x333333);
         const intermediateColor = new Color().lerpColors(dayColor, nightColor, 0.5);
@@ -367,9 +397,9 @@ export default class Park {
     }
 
     render(renderer: WebGLRenderer) {
-        if (!this.camera) {
+        if (!this.activeCamera) {
             throw new Error("No hay una cámara activa");
         }
-        renderer.render(this.scene, this.camera);
+        renderer.render(this.scene, this.activeCamera);
     }
 }
