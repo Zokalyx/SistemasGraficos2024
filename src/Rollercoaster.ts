@@ -366,6 +366,9 @@ export default class Rollercoaster {
 
     updateCart(timeDelta: number, externalSpeed: number) {
         const speed = this.rollercoasterPath.getSpeed(this.cartCoordinate);
+        const playbackSpeed = Math.pow(speed, 0.3) + 1.2;
+        this.cartAudio!.setPlaybackRate(playbackSpeed);
+        this.cartAudio!.setVolume(speed + 0.2);
         this.cartCoordinate = (this.cartCoordinate + speed * externalSpeed * timeDelta) % 1;
         this.updateCartPosition();
     }

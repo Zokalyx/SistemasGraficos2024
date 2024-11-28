@@ -1,8 +1,9 @@
-import { BoxGeometry, CircleGeometry, CylinderGeometry, Group, Matrix4, Mesh, MeshPhongMaterial, PerspectiveCamera, Scene, SphereGeometry, TextureLoader, Vector3 } from "three";
+import { AudioListener, AudioLoader, BoxGeometry, CircleGeometry, CylinderGeometry, Group, Matrix4, Mesh, MeshPhongMaterial, PerspectiveCamera, PositionalAudio, Scene, SphereGeometry, TextureLoader, Vector3 } from "three";
 import { BufferGeometryUtils } from "three/examples/jsm/Addons.js";
 import spiralUrl from "../assets/spiral.jpg";
 import steelWireUrl from "../assets/steel_wire.jpg";
 import clothNormalUrl from "../assets/fabric_normal.jpg";
+import chairSoundUrl from "../assets/chairs.mp3";
 
 /*
     Contiene todo el conjunto de sillas que giran y la estructura sobre la cual
@@ -26,7 +27,10 @@ export default class SpinningChairs {
     // Cámaras
     camera?: PerspectiveCamera;
 
-    constructor(scene: Scene) {
+    // Audio
+    audio: PositionalAudio;
+
+    constructor(scene: Scene, audioListener: AudioListener) {
         const height = 20;
 
         // Poste central
@@ -48,8 +52,22 @@ export default class SpinningChairs {
         this.createSpinningPart();
         this.spinningPart.position.setY(height);
 
+        this.audio = new PositionalAudio(audioListener);
+
         // Cargar todo
         this.load(scene);
+
+    }
+
+    startAudio() {
+        const audioLoader = new AudioLoader();
+        const sound = this.audio;
+        audioLoader.load(chairSoundUrl, buffer => {
+            sound.setBuffer(buffer);
+            sound.setLoop(true);
+            sound.setRefDistance(5);
+            sound.play();
+        });
     }
 
     update(timeDelta: number, speed: number) {
@@ -58,6 +76,9 @@ export default class SpinningChairs {
         this.rotationAngle += this.rotationSpeed * speed * timeDelta;
         this.spinningPart.setRotationFromAxisAngle(new Vector3(0, 1, 0), this.rotationAngle);
         this.positionChairs();
+
+        this.audio.setPlaybackRate(this.rotationSpeed);
+        this.audio.setVolume(this.rotationSpeed / 2.0);
     }
 
     createSpinningPart() {
@@ -174,6 +195,7 @@ export default class SpinningChairs {
         this.group.add(this.support);
         this.group.add(this.mainPole);
         this.group.add(this.spinningPart);
+        this.group.add(this.audio);
 
         scene.add(this.group);
     }

@@ -109,7 +109,7 @@ export default class Ground {
         waterGroup.add(water);
         waterGroup.add(frame);
         waterGroup.rotateX(-Math.PI / 2);
-        waterGroup.position.set(-20, 0.01, 0);
+        waterGroup.position.set(-20, 0.1, 0);
 
         // Agregar todo
         this.group = new Group();

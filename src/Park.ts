@@ -1,9 +1,10 @@
-import { AudioListener, AxesHelper, BoxGeometry, CameraHelper, Color, CylinderGeometry, DirectionalLight, Fog, GridHelper, Group, HemisphereLight, IUniform, Light, Mesh, MeshBasicMaterial, MeshPhongMaterial, MeshPhysicalMaterial, PerspectiveCamera, PointLight, Scene, SphereGeometry, SpotLight, Vector3, WebGLRenderer } from "three";
+import { Audio, AudioListener, AudioLoader, AxesHelper, BoxGeometry, CameraHelper, Color, CylinderGeometry, DirectionalLight, Fog, GridHelper, Group, HemisphereLight, IUniform, Light, Mesh, MeshBasicMaterial, MeshPhongMaterial, MeshPhysicalMaterial, PerspectiveCamera, PointLight, Scene, SphereGeometry, SpotLight, Vector3, WebGLRenderer } from "three";
 import { FirstPersonControls, FontLoader, OrbitControls, Sky, TextGeometry } from "three/examples/jsm/Addons.js";
 import Rollercoaster from "./Rollercoaster";
 import SpinningChairs from "./SpinningChairs";
 import Ground from "./Ground";
 import fontUrl from "../assets/Lobster_Regular.txt";
+import windUrl from "../assets/wind.mp3";
 
 /*
     Contiene la escena del parque de diversiones
@@ -39,6 +40,9 @@ export default class Park {
     rollercoaster: Rollercoaster;
     spinningChairs: SpinningChairs;
 
+    /* Audio */
+    globalSound: Audio;
+
     constructor(domElement: HTMLElement, audioListener: AudioListener) {
         const testGeometry = new SphereGeometry();
         const material = new MeshBasicMaterial({ color: 0xffffff });
@@ -52,7 +56,7 @@ export default class Park {
         this.rollercoaster.group.position.set(0, 10, 0);
 
         // Sillas
-        this.spinningChairs = new SpinningChairs(this.scene);
+        this.spinningChairs = new SpinningChairs(this.scene, audioListener);
         this.spinningChairs.group.position.set(40, 0, -40);
 
         // Piso
@@ -88,6 +92,9 @@ export default class Park {
 
         // Letras 3D
         this.create3DLetters();
+
+        // Audio
+        this.globalSound = new Audio(audioListener);
     }
 
     create3DLetters() {
@@ -385,8 +392,24 @@ export default class Park {
         this.dayCycleSpeed = value;
     }
 
+    updateAudio() {
+        const cameraDistance = this.activeCamera.position.length();
+        const volume = Math.min(0.25, 100 / cameraDistance);
+        this.globalSound.setVolume(volume);
+    }
+
     startAudio() {
+        const audioLoader = new AudioLoader();
+        const sound = this.globalSound
+        audioLoader.load(windUrl, buffer => {
+            sound.setBuffer(buffer);
+            sound.setLoop(true);
+            sound.setVolume(0.25);
+            sound.play();
+        });
+
         this.rollercoaster.startAudio();
+        this.spinningChairs.startAudio();
     }
 
     update(timeDelta: number, automaticDayTimeUpdate: boolean, cartSpeed: number, chairsSpeed: number) {
@@ -402,6 +425,8 @@ export default class Park {
         this.firstPersonCamera.position.setY(2);
 
         this.updateFlashLight();
+
+        this.updateAudio();
     }
 
     render(renderer: WebGLRenderer) {
