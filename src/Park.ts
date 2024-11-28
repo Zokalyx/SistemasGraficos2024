@@ -26,6 +26,8 @@ export default class Park {
     lampLights: Light[] = [];
     lampBoxMaterial?: MeshPhongMaterial;
     skySunUniform?: IUniform<any>;
+    dayCycleTime: number = 0;
+    dayCycleSpeed: number = 0.3333;
 
     /* Helpers */
     planeHelper?: GridHelper;
@@ -335,6 +337,8 @@ export default class Park {
     }
 
     setTimeOfDay(time: number) {
+        this.dayCycleTime = time;
+
         if (!this.sunLight) {
             return;
         }
@@ -342,10 +346,11 @@ export default class Park {
         // "tiempo angular" sería convertir de 0 a 24 -> 0 a 2pi
         const angularTime = 2 * Math.PI * time / 24;
 
-        // Definir día o noche
+        // Definir día o noche, amanecer o atardecer
         const dawn = 6;
         const dusk = 18;
         const isDay = time >= dawn && time < dusk;
+        const isDawn = Math.abs(time - dawn) < Math.abs(time - dusk);
 
         // Cuánto tiempo pasó desde el amanecer
         const dayTime = time - dawn;
@@ -369,25 +374,28 @@ export default class Park {
         // Ajustar color de fog
         const dayColor = new Color(0xcccccc);
         const nightColor = new Color(0x333333);
-        const intermediateColor = new Color().lerpColors(dayColor, nightColor, 0.5);
-        const mainColor = isDay ? dayColor : nightColor;
-        const lerpFactor = Math.pow(isDay ? Math.sin(angularDayTime) : Math.sin(angularNightTime), 0.1);
-        this.scene.fog!.color.lerpColors(intermediateColor, mainColor, lerpFactor);
+        const clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max);
+        const root = (num: number, power: number) => num > 0 ? Math.pow(num, power) : - Math.pow(-num, power);
+        const fogChangeSpeed = 3;
+        const lerpFactor = (1 + root(clamp(fogChangeSpeed * (isDawn ? dayTime : -nightTime), -1, 1), 0.3)) / 2;
+        this.scene.fog!.color.lerpColors(nightColor, dayColor, lerpFactor);
+    }
+
+    setDayCycleSpeed(value: number) {
+        this.dayCycleSpeed = value;
     }
 
     startAudio() {
         this.rollercoaster.startAudio();
     }
 
-    update(time: number, timeDelta: number, automaticDayTimeUpdate: boolean, cartSpeed: number, chairsSpeed: number) {
+    update(timeDelta: number, automaticDayTimeUpdate: boolean, cartSpeed: number, chairsSpeed: number) {
         this.rollercoaster.updateCart(timeDelta, cartSpeed);
         this.spinningChairs.update(timeDelta, chairsSpeed);
 
         if (automaticDayTimeUpdate) {
-            if (this.sunLight) {
-                const dayTime = time / 3 % 24;
-                this.setTimeOfDay(dayTime);
-            }
+            this.dayCycleTime = (this.dayCycleTime + timeDelta * this.dayCycleSpeed) % 24;
+            this.setTimeOfDay(this.dayCycleTime);
         }
 
         this.firstPersonControls.update(10 * timeDelta);

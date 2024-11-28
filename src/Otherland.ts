@@ -41,6 +41,7 @@ export default class Otherland {
             chairsSpeed: 1,
             volume: 50,
             timeOfDay: 0,
+            timeOfDaySpeed: 1,
             automaticDay: true,
             showHelpers: false,
             flashlight: false,
@@ -92,6 +93,9 @@ export default class Otherland {
             this.audioListener.setMasterVolume(this.guiParameters.mute ? 0 : value / 100);
         });
 
+        simulationFolder.add(this.guiParameters, "timeOfDaySpeed", 0, 3).name("Velocidad del día").onChange(value => {
+            this.park.setDayCycleSpeed(value);
+        })
         simulationFolder.add(this.guiParameters, "timeOfDay", 0, 24).step(0.1).name("Hora del día").onChange(value => {
             this.park.setTimeOfDay(value);
         });
@@ -147,7 +151,7 @@ export default class Otherland {
         this.lastFrameTime = time;
 
         this.park.render(this.renderer);
-        this.park.update(time / 1000, timeDelta, this.guiParameters.automaticDay, this.guiParameters.cartSpeed, this.guiParameters.chairsSpeed);
+        this.park.update(timeDelta, this.guiParameters.automaticDay, this.guiParameters.cartSpeed, this.guiParameters.chairsSpeed);
 
         this.stats.update();
     }
