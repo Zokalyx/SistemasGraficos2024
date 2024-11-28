@@ -2,6 +2,7 @@ import { CircleGeometry, ExtrudeGeometry, Group, Mesh, MeshPhongMaterial, PlaneG
 import { Water } from "three/examples/jsm/objects/Water2.js";
 import grassTextureUrl from "../assets/seamless_grass.jpg";
 import rockTextureUrl from "../assets/rock.jpg";
+import rockNormalUrl from "../assets/rock_normal.jpg"
 import soilTextureUrl from "../assets/soil.jpg";
 import pathMaskUrl from "../assets/path.jpg";
 import waterNormal1Url from "../assets/water_normal_1.jpg";
@@ -14,20 +15,32 @@ const customUnifoms = `
     uniform sampler2D rockTexture;
     uniform sampler2D dirtTexture;
     uniform sampler2D pathMask;
+    uniform sampler2D rockNormalTexture;
 `
 
-const customShader = `
-    vec4 grassColor = texture2D(grassTexture, 200.0 * vUv);
-    vec4 rockColor = texture2D(rockTexture, 200.0 * vUv);
-    vec4 dirtColor = texture2D(dirtTexture, 200.0 * vUv);
+const customNormalShader = `
+    vec3 mapN = texture2D( normalMap, 200.0 * vNormalMapUv ).xyz * 2.0 - 1.0;
+    mapN = mix(vec3(0.0, 0.0, 1.0), mapN, smoothstep(0.75, 0.85, pathValue));
+	mapN.xy *= normalScale * 20.0;
+
+	normal = normalize( tbn * mapN );
+`
+
+const customDiffuseShader = `
     vec2 maskUv = vUv - 0.5;
     maskUv = maskUv * 20.0;
     maskUv = maskUv + 0.5;
-    float pathMask = texture2D(pathMask, maskUv).r;
+    float pathValue = texture2D(pathMask, maskUv).r;
 
-    diffuseColor = mix(grassColor, dirtColor, smoothstep(0.35, 0.7, pathMask));
-    diffuseColor = mix(diffuseColor, rockColor, smoothstep(0.75, 0.85, pathMask));
+    vec4 grassColor = texture2D(grassTexture, 200.0 * vUv);
+    vec4 rockColor = texture2D(rockTexture, 200.0 * vUv);
+    vec4 dirtColor = texture2D(dirtTexture, 200.0 * vUv);
+
+    diffuseColor = mix(grassColor, dirtColor, smoothstep(0.35, 0.7, pathValue));
+    diffuseColor = mix(diffuseColor, rockColor, smoothstep(0.75, 0.85, pathValue));
+    diffuseColor.rgb *= 3.0;
 `
+
 /*
     Contiene el piso, rocas y la pileta
 */
@@ -45,6 +58,10 @@ export default class Ground {
         rockTexture.wrapS = RepeatWrapping;
         rockTexture.wrapT = RepeatWrapping;
 
+        const rockNormalTexture = loader.load(rockNormalUrl);
+        rockNormalTexture.wrapS = RepeatWrapping;
+        rockNormalTexture.wrapT = RepeatWrapping;
+
         const dirtTexture = loader.load(soilTextureUrl);
         dirtTexture.wrapS = RepeatWrapping;
         dirtTexture.wrapT = RepeatWrapping;
@@ -54,7 +71,7 @@ export default class Ground {
         // Material base
         const material = new MeshPhongMaterial({
             color: 0xffffff,
-            specular: 0xffffff,
+            normalMap: rockNormalTexture,
             shininess: 2,
         });
 
@@ -63,6 +80,7 @@ export default class Ground {
             rockTexture: { value: rockTexture, type: "t" },
             dirtTexture: { value: dirtTexture, type: "t" },
             pathMask: { value: pathMask, type: "t" },
+            rockNormalTexture: { value: rockNormalTexture, type: "t" },
         };
 
         // Asegurarse de poder usar las coordenadas `vUv` en el shader
@@ -74,12 +92,14 @@ export default class Ground {
             shader.uniforms.rockTexture = uniforms.rockTexture;
             shader.uniforms.dirtTexture = uniforms.dirtTexture;
             shader.uniforms.pathMask = uniforms.pathMask;
+            shader.uniforms.rockNormalTexture = uniforms.rockNormalTexture;
 
             shader.fragmentShader = customUnifoms + shader.fragmentShader;
-            shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", customShader);
+            shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", customDiffuseShader);
+            shader.fragmentShader = shader.fragmentShader.replace("#include <normal_fragment_maps>", customNormalShader)
 
             // console.debug(shader.vertexShader);
-            // console.debug(shader.fragmentShader);
+            console.debug(shader.fragmentShader);
         }
 
         // Piso en sí
