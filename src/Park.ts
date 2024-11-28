@@ -274,7 +274,7 @@ export default class Park {
         poleLightGroup.position.set(0, height + radius, 0);
 
         // Poste en sí
-        const poleMaterial = new MeshPhongMaterial({ color: 0x666666 });
+        const poleMaterial = new MeshPhongMaterial({ color: 0x666666, shininess: 1000, reflectivity: 1 });
         const poleGeometry = new CylinderGeometry(radius, radius, height);
         const poleMesh = new Mesh(poleGeometry, poleMaterial);
         poleMesh.position.setY(height / 2);

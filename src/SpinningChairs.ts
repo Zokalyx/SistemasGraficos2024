@@ -34,7 +34,7 @@ export default class SpinningChairs {
         const height = 20;
 
         // Poste central
-        const mainPoleMaterial = new MeshPhongMaterial({ color: 0xaaaaaa });
+        const mainPoleMaterial = new MeshPhongMaterial({ color: 0xaaaaff, shininess: 2000, reflectivity: 1 });
         const mainPoleGeometry = new CylinderGeometry(2, 2, height);
         this.mainPole = new Mesh(mainPoleGeometry, mainPoleMaterial);
         this.mainPole.position.setY(height / 2);
@@ -42,7 +42,7 @@ export default class SpinningChairs {
         this.mainPole.receiveShadow = true;
 
         // Soporte
-        const supportMaterial = new MeshPhongMaterial({ color: 0x6688aa });
+        const supportMaterial = new MeshPhongMaterial({ color: 0x6688aa, shininess: 300, reflectivity: 0.5 });
         const supportGeometry = new CylinderGeometry(2.5, 5, height / 3);
         this.support = new Mesh(supportGeometry, supportMaterial);
         this.support.receiveShadow = true;
