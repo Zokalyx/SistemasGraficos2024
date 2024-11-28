@@ -85,7 +85,6 @@ export default class Rollercoaster {
         scene.add(this.group);
     }
 
-
     createPoles() {
         const poles = [];
 
@@ -95,14 +94,18 @@ export default class Rollercoaster {
         const normalTexture = new TextureLoader().load(rustNormalUrl);
         normalTexture.wrapS = RepeatWrapping;
         normalTexture.wrapT = RepeatWrapping;
-        const material = new MeshPhongMaterial({ color: 0x77778a, normalMap: normalTexture, shininess: 100 });
+        const rgbeLoader = new RGBELoader();
+        const reflectionMap = rgbeLoader.load(reflectionMapUrl, (texture) => {
+            texture.mapping = EquirectangularReflectionMapping;
+        });
+        const material = new MeshPhongMaterial({ color: 0xAAAAAA, normalMap: normalTexture, shininess: 100, envMap: reflectionMap, reflectivity: 0.5 });
 
         // Esto evita un corte abrupto de la columna arriba de todo
         const topSphereGeometry = new SphereGeometry(0.5);
         const topSphere = new Mesh(topSphereGeometry, material);
 
         // Posicionar todo según la coordenada del camino (proporcional a distancia)
-        const coordinates = [0, 0.075, 0.15, 0.2, 0.26, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.63, 0.82, 0.87, 0.95];
+        const coordinates = [0, 0.075, 0.15, 0.2, 0.26, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.63, 0.82, 0.85, 0.95];
         for (const coordinate of coordinates) {
             // Ajusto para que el apoyo quede contra la parte de "abajo" de la pista y no se meta dentro del camino.
             const position = this.rollercoasterPath.getPosition(coordinate).sub(new Vector3(0.5, 0, 0).applyMatrix4(this.rollercoasterPath.getRotationMatrix(coordinate)));
@@ -183,7 +186,7 @@ export default class Rollercoaster {
     cartProfile() {
         // Parámetros de un rectángulo redondeado
         // No viene cerrado - se puede cerrar aparte.
-        const r = 0.2;
+        const r = 0.3;
         const h = 1.6 / 2;
         const w = 1.2 / 2;
 
@@ -264,7 +267,7 @@ export default class Rollercoaster {
         this.cartAudio = sound;
 
         const [mainGeometry, frontGeometry, capGeometry] = this.createCartGeometry();
-        const material = new MeshPhongMaterial({ color: 0xff0000, side: DoubleSide });
+        const material = new MeshPhongMaterial({ color: 0xff0000, side: DoubleSide, shininess: 100, reflectivity: 1 });
 
         // Parte central
         mainGeometry.applyMatrix4(new Matrix4().makeTranslation(1, 0, 0));
